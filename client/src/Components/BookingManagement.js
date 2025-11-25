@@ -11,13 +11,6 @@ function BookingManagement() {
     fetchBookings();
   }, []);
 
-  // Auto-refresh when updates complete
-  useEffect(() => {
-    if (updatingId === null) {
-      fetchBookings();
-    }
-  }, [updatingId]);
-
   const fetchBookings = async () => {
     try {
       setLoading(true);
@@ -64,6 +57,15 @@ function BookingManagement() {
       console.log(`Updating booking ${bookingId} to status: ${status}`);
       console.log(`Sending PUT request to: ${API_BASE_URL}/bookings/${bookingId}`);
       
+      // Optimistically update the UI
+      setBookings(prevBookings => 
+        prevBookings.map(booking => 
+          booking.id === bookingId 
+            ? { ...booking, status: status }
+            : booking
+        )
+      );
+      
       const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}`, {
         method: "PUT",
         headers: { 
@@ -87,6 +89,15 @@ function BookingManagement() {
       }
       
       if (!response.ok) {
+        // Revert optimistic update if failed
+        setBookings(prevBookings => 
+          prevBookings.map(booking => 
+            booking.id === bookingId 
+              ? { ...booking, status: booking.status } // revert to original status
+              : booking
+          )
+        );
+        
         let errorMessage = "Update failed";
         
         if (responseData) {
@@ -110,12 +121,24 @@ function BookingManagement() {
       }
       
       if (!responseData.success) {
+        // Revert optimistic update if failed
+        setBookings(prevBookings => 
+          prevBookings.map(booking => 
+            booking.id === bookingId 
+              ? { ...booking, status: booking.status }
+              : booking
+          )
+        );
+        
         const errorMessage = responseData.message || "Update failed without specific error";
         console.error("Update failed:", errorMessage);
         throw new Error(errorMessage);
       }
       
       console.log("Update successful:", responseData);
+      
+      // Refresh data to ensure consistency with server
+      fetchBookings();
       
       alert(responseData.message || `Booking ${status.toLowerCase()} successfully!`);
       
@@ -726,64 +749,59 @@ const styles = {
 };
 
 // Add CSS animation for spinner
-const spinAnimation = `
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-`;
-
-// Inject the animation styles
 const styleSheet = document.styleSheets[0];
-styleSheet.insertRule(spinAnimation, styleSheet.cssRules.length);
+if (styleSheet) {
+  const spinAnimation = `
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `;
+  styleSheet.insertRule(spinAnimation, styleSheet.cssRules.length);
+}
 
-// Add hover effects
-Object.assign(styles.statCard, {
-  ':hover': {
-    transform: "translateY(-2px)",
-    boxShadow: "0 6px 12px rgba(0,0,0,0.15)",
-  }
-});
+// Add hover effects using JavaScript event listeners or CSS-in-JS
+// For better performance, you might want to move these to a CSS file
+const addHoverEffects = () => {
+  // These would typically be in a CSS file
+  const hoverStyles = `
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+    .refresh-button:hover {
+      background: #1a237e;
+      transform: translateY(-1px);
+    }
+    .confirm-button:hover {
+      background: #45a049;
+      transform: scale(1.05);
+    }
+    .cancel-button:hover {
+      background: #da190b;
+      transform: scale(1.05);
+    }
+    .checkin-button:hover {
+      background: #1976d2;
+      transform: scale(1.05);
+    }
+    .checkout-button:hover {
+      background: #7b1fa2;
+      transform: scale(1.05);
+    }
+    .table-row:hover {
+      background-color: #f8f9fa;
+    }
+  `;
+  
+  const style = document.createElement('style');
+  style.textContent = hoverStyles;
+  document.head.append(style);
+};
 
-Object.assign(styles.refreshButton, {
-  ':hover': {
-    background: "#1a237e",
-    transform: "translateY(-1px)",
-  }
-});
-
-Object.assign(styles.confirmButton, {
-  ':hover': {
-    background: "#45a049",
-    transform: "scale(1.05)",
-  }
-});
-
-Object.assign(styles.cancelButton, {
-  ':hover': {
-    background: "#da190b",
-    transform: "scale(1.05)",
-  }
-});
-
-Object.assign(styles.checkInButton, {
-  ':hover': {
-    background: "#1976d2",
-    transform: "scale(1.05)",
-  }
-});
-
-Object.assign(styles.checkOutButton, {
-  ':hover': {
-    background: "#7b1fa2",
-    transform: "scale(1.05)",
-  }
-});
-
-Object.assign(styles.tableRow, {
-  ':hover': {
-    backgroundColor: "#f8f9fa",
-  }
-});
+// Call this function when component mounts
+// useEffect(() => {
+//   addHoverEffects();
+// }, []);
 
 export default BookingManagement;
